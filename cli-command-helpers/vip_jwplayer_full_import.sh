@@ -73,4 +73,8 @@ run_vip_full_jwplayer_video_import() {
 	done
 }
 
+echo "Beginning JWPlayer Full Import..."
+SECONDS=0
 run_vip_full_jwplayer_video_import
+duration=$SECONDS
+echo "Import completed in $(($duration / 3600)) hours, $(($duration / 60)) minutes and $(($duration % 60)) seconds."

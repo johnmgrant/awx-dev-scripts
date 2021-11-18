@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 # Full import command:
-# local - bash bin/jwplayer-full-import.sh local-dev.consumer-cms 200 338 true (doesn't currently work on macOS BigSur)
-# dev   - bash bin/jwplayer-full-import.sh cms-accuweather.develop 200 338 false
+# local - bash lando_jwplayer_full_import.sh local-dev.consumer-cms 200 338
 if [ $# -lt 3 ]; then
 	echo "usage: $0 <env-name> <posts-per-page> <pages>"
 	exit 1
@@ -25,7 +24,11 @@ run_lando_accuweather_jwplayer_video_import() {
 	local LOG_FILE_NAME="import_jwplayer_videos_page_${PAGES}_videos_${POSTS_PER_PAGE}_import.log"
 
 	# Run the single import command.
-	lando wp accuweather import_jwplayer_videos --per-page="$POSTS_PER_PAGE" --pages=1 --offset="$VIDEO_OFFSET" --update-existing --verbose --format=table | tee -a "$IMPORT_LOG_DIR/$LOG_FILE_NAME"
+	# Removing verbose as it caused issues: --verbose
+	lando wp accuweather import_jwplayer_videos --per-page="$POSTS_PER_PAGE" --pages=1 --offset="$VIDEO_OFFSET" --update-existing --format=table | tee -a "$IMPORT_LOG_DIR/$LOG_FILE_NAME"
+		
+	# sleep for 5 seconds
+	sleep 5
 }
 
 run_lando_full_jwplayer_video_import() {

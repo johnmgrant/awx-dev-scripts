@@ -32,8 +32,8 @@ run_lando_accuweather_jwplayer_video_import() {
 }
 
 run_lando_full_jwplayer_video_import() {
-	local VIP_DEV_ENV_DIR=".local/share/vip/dev-environment"
-	if [[ -z "$ENV_NAME" || ! -d "$HOME/$VIP_DEV_ENV_DIR/$ENV_NAME" ]]; then
+
+	if [[ -z "$ENV_NAME" || -z "$VIP_DEV_ENV_DIR" || ! -d "$HOME/$VIP_DEV_ENV_DIR/$ENV_NAME" ]]; then
 		return;
 	else
 		local CURRENT_DIR=$(pwd)

@@ -3,7 +3,10 @@
 # Script to Log VIP dev-env information for troubleshooting:
 #
 # EXAMPLE:
-#   -
+#   - bash log_vip_troubleshoot_info <env-slug> true
+#      - Use this form if `vip --slug=<env-slug> dev-env create` was used.
+#   - `bash log_vip_troubleshoot_info <env-app-id.env-level>`
+#      - Use this form if `vip @<env-app-id.env-level> dev-env create` was used.
 #
 if [ $# -lt 1 ]; then
 	echo "usage: $0 <env-name> [is-slug]"

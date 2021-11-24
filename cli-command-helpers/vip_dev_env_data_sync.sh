@@ -40,25 +40,25 @@ do_handle_data_import() {
 
 	# Ensure that '.' is replaced with '-' in ENV_NAME
 	local ENV_SLUG_NAME="${ENV_NAME//./$'-'}"
-	if [[ -z "$IS_SLUG_ENV" || "$IS_SLUG_ENV" == true ]]; then
+	if [[ ! -z "$IS_SLUG_ENV" || "$IS_SLUG_ENV" == true ]]; then
 		ENV_SLUG_NAME="$ENV_NAME"
 	fi
 
 	if [[ -z "$ENV_NAME" || -z "$VIP_DEV_ENV_DIR" || -z "$HOSTNAME_CONSUMER_CMS_PROD" || ! -d "$VIP_DEV_ENV_DIR/$ENV_SLUG_NAME" ]]; then
-		echo "Error: There is a missing dependency!"
-		echo "Param 1: $ENV_NAME"
-		echo "Param 2: $VIP_DEV_ENV_DIR"
-		echo "Param 3: $HOSTNAME_CONSUMER_CMS_PROD"
-		echo "Global Path: $VIP_DEV_ENV_DIR/$ENV_SLUG_NAME"
+		echo -e "Error: There is a missing dependency!"
+		echo -e "Param 1: $ENV_NAME"
+		echo -e "Param 2: $VIP_DEV_ENV_DIR"
+		echo -e "Param 3: $HOSTNAME_CONSUMER_CMS_PROD"
+		echo -e "Global Path: $VIP_DEV_ENV_DIR/$ENV_SLUG_NAME"
 		exit 1
 	else
 		local CURRENT_DIR=$( PWD )
 		cd "$VIP_DEV_ENV_DIR/$ENV_SLUG_NAME"
-		echo "Working from $PWD"
+		echo -e "Working from $PWD"
 	fi
 
-	local VIP_ENV_NAME="$VIP_ENV_NAME"
-	if [[ -z "$IS_SLUG_ENV" || "$IS_SLUG_ENV" == true ]]; then
+	local VIP_ENV_NAME="@$ENV_NAME"
+	if [ "$IS_SLUG_ENV" == true ]; then
 		VIP_ENV_NAME="--slug=$ENV_NAME"
 	fi
 
@@ -81,7 +81,7 @@ do_handle_data_import() {
 				local PREVIOUS_DIR=$( PWD )
 				local EXTRACTED_TAR_NAME="${TAR_NAME%*".tar.gz"}"
 
-				echo "Beginning extraction of $TAR_NAME tar from directory $TAR_DIR..."
+				echo -e "Beginning extraction of $TAR_NAME tar from directory $TAR_DIR..."
 				cd $TAR_DIR &&
 				mkdir $EXTRACTED_TAR_NAME &&
 				tar -xvf $TAR_NAME -C $EXTRACTED_TAR_NAME &&
@@ -98,7 +98,7 @@ do_handle_data_import() {
 	}
 
 	# Remove files that do not need to be imported locally.
-	echo "Removing uneeded production sql files..."
+	echo -e "Removing uneeded production sql files..."
 	{
 		rm wp_site.sql
 		rm wp_blogs.sql
@@ -123,18 +123,18 @@ do_handle_data_import() {
 
 	cd ../../../
 	rm -rf db_dump/
-	update_data_tables
+	update_table_data_entries
 
 	cd $CURRENT_DIR
 }
 
-echo "Beginning VIP dev-env data import..."
+echo -e "Beginning VIP dev-env data import..."
 SECONDS=0
 {
 	do_handle_data_import &&
-	echo "\n---\nVIP dev-env data import completed succesfully!"
+	echo -e "\n---\nVIP dev-env data import completed succesfully!"
 } || {
 	error_exit "VIP dev-env data import script encoutered an error during import..."
 }
 duration=$SECONDS
-echo "Import completed in $(($duration / 60)) minutes and $(($duration % 60)) seconds."
+echo -e "Import completed in $(($duration / 60)) minutes and $(($duration % 60)) seconds."

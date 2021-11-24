@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 if [ $# -lt 2 ]; then
-	echo "usage: $0 <env-name> <path-to-sql-tar.gz> [is-slugged-environment]"
+	echo -e "usage: $0 <env-name> <path-to-sql-tar.gz> [is-slugged-environment]"
 	exit 1
 fi
 
@@ -15,23 +15,29 @@ PRODUCTION_SITE="www.accuweather.com"
 LOCAL_SITE="192.168.0.242:8086"
 
 log_error_exit() {
-    echo "Error: $1"
+    echo -e "Error: $1"
     exit 1
+}
+
+declare -A retainedVars
+retain_vip_dev_env_vars() {
+	retainedVars[site_name]=$( vip "$VIP_ENV_NAME" dev-env exec -- wp option get blogname )
+	# We could also retain the home/ siteurl, but logic is already included to have those.
 }
 
 update_table_data_entries() {
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option update home "http://$ENV_SLUG_NAME.vipdev.lndo.site"
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option update siteurl "http://$ENV_SLUG_NAME.vipdev.lndo.site"
-	vip "$VIP_ENV_NAME" dev-env exec -- wp option update blogname "AccuwWeather Consumer CMS Local Dev 1"
+	vip "$VIP_ENV_NAME" dev-env exec -- wp option update blogname "${retainedVars[site_name]}"
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option update admin_email "$WORK_EMAIL"
-	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update aw_site_settings preview_link_base_url $LOCAL_SITE
+	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update aw_site_settings preview_link_base_url "$LOCAL_SITE"
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update apple_news_settings api_autosync no
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update apple_news_settings api_autosync_update no
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update apple_news_settings api_autosync_delete no
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update aw_jwplayer cron_import_settings enable_cron_import 0
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update aw_jwplayer playlist_import_options import_enabled 0
 	vip "$VIP_ENV_NAME" dev-env exec -- wp network meta update 1 admin_email "$WORK_EMAIL"
-	vip "$VIP_ENV_NAME" dev-env exec -- wp site meta update 1 site_name "AccuwWeather Consumer CMS Local Dev 1"
+	vip "$VIP_ENV_NAME" dev-env exec -- wp site meta update 1 site_name "${retainedVars[site_name]}"
 	vip "$VIP_ENV_NAME" dev-env exec -- wp site meta update 1 siteurl "http://$ENV_SLUG_NAME.vipdev.lndo.site"
 	vip "$VIP_ENV_NAME" dev-env exec -- wp cache flush
 }
@@ -111,6 +117,9 @@ do_handle_data_import() {
 	} || {
 		log_error_exit "Failed to remove expected sql files..."
 	}
+
+	# Store the db dev-env variable(s) before proceeding...
+	retain_vip_dev_env_vars
 
 	for sql_file in *.sql; do
 		{

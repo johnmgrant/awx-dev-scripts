@@ -13,9 +13,9 @@ PAGES=${3}
 
 run_lando_accuweather_jwplayer_video_import() {
 
-	if [[ 0 -eq "$POSTS_PER_PAGE" ]]; then
+	if [ 0 -eq "$POSTS_PER_PAGE" ]; then
 		POSTS_PER_PAGE=1;
-	elif [[ 1000 -lt "$POSTS_PER_PAGE" ]]; then
+	elif [ 1000 -lt "$POSTS_PER_PAGE" ]; then
 		POSTS_PER_PAGE=1000;
 	fi
 
@@ -26,19 +26,24 @@ run_lando_accuweather_jwplayer_video_import() {
 	# Run the single import command.
 	# Removing verbose as it caused issues: --verbose
 	lando wp accuweather import_jwplayer_videos --per-page="$POSTS_PER_PAGE" --pages=1 --offset="$VIDEO_OFFSET" --update-existing --format=table | tee -a "$IMPORT_LOG_DIR/$LOG_FILE_NAME"
-		
+
 	# sleep for 5 seconds
 	sleep 5
 }
 
 run_lando_full_jwplayer_video_import() {
 
-	if [[ -z "$ENV_NAME" || -z "$VIP_DEV_ENV_DIR" || ! -d "$HOME/$VIP_DEV_ENV_DIR/$ENV_NAME" ]]; then
-		return;
-	else
-		local CURRENT_DIR=$(pwd)
-		cd "$HOME/$VIP_DEV_ENV_DIR/$ENV_NAME"
+	local VIP_DEV_ENV_DIR_PATH="$VIP_DEV_ENV_DIR/$ENV_NAME"
+	if [ ! -d "$VIP_DEV_ENV_DIR_PATH" ]; then
+		# Also check for if this is a non-slug created dev-env
+		if [ ! -d "$VIP_DEV_ENV_DIR/${ENV_NAME//./$'-'}" ]; then
+			return;
+		fi
+		VIP_DEV_ENV_DIR_PATH="$VIP_DEV_ENV_DIR/${ENV_NAME//./$'-'}"
 	fi
+
+	local CURRENT_DIR=$(pwd)
+	cd "$VIP_DEV_ENV_DIR_PATH"
 
 	local VIDEO_OFFSET=0
 	local CURRENT_PAGE=1
@@ -64,6 +69,11 @@ run_lando_full_jwplayer_video_import() {
 
 echo "Beginning JWPlayer Full Import..."
 SECONDS=0
-run_lando_full_jwplayer_video_import
+{
+	run_lando_full_jwplayer_video_import &&
+	echo "JWPlayer video import completed succesfully!"
+} || {
+	error_exit "JWPlayer video import script encoutered an error during import..."
+}
 duration=$SECONDS
 echo "Import completed in $(($duration / 3600)) hours, $(($duration / 60)) minutes and $(($duration % 60)) seconds."

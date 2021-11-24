@@ -57,7 +57,7 @@ log_vip_env_troubleshoot_info() {
 	fi
 
 	local VIP_DEV_ENV_DIR_PATH="$VIP_DEV_ENV_DIR/$ENV_NAME"
-	if [[ -z "$VIP_DEV_ENV_DIR" || ! -d "$VIP_DEV_ENV_DIR_PATH" ]]; then
+	if [ ! -d "$VIP_DEV_ENV_DIR_PATH" ]; then
 		# Also check for if this is a non-slug created dev-env
 		if [ ! -d "$VIP_DEV_ENV_DIR/${ENV_NAME//./$'-'}" ]; then
 			return;

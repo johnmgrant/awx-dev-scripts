@@ -43,7 +43,6 @@ vip_jwplayer_full_import_help() {
 # Defines function to grab a time stamp #
 write_log_and_append_tee() {
 	local STDOUT_TO_IN=""
-	local CURRENT_TIME=$( date '+%Y-%m-%d\ %H:%M:%S' )
 	if [ -n "${1}" ]; then
 		# If it's from a "<message>" then set it
 		STDOUT_TO_IN="${1}"
@@ -56,7 +55,7 @@ write_log_and_append_tee() {
 		# This reads a string from stdin and stores it as variable called STDOUT_TO_IN
 		while IFS= read -r STDOUT_TO_IN; do
 			if [ ! -z "$STDOUT_TO_IN" ]; then
-				echo "[${CURRENT_TIME}] ${STDOUT_TO_IN}" | tee -a ${LOG_FILE_PATH}
+				echo "[$( date '+%Y-%m-%d\ %H:%M:%S' )] ${STDOUT_TO_IN}" | tee -a ${LOG_FILE_PATH}
 			else
 				echo | tee -a ${LOG_FILE_PATH}
 			fi
@@ -69,20 +68,21 @@ write_log_and_append_tee() {
 ############################################################
 run_vip_jwplayer_video_import_request_retry() {
 	while true; do
-		CURRENT_COMMAND_OUTPUT="$( ${CURRENT_COMMAND[@]} 2>&1 )"
+		CURRENT_COMMAND_OUTPUT="$( ${CURRENT_COMMAND[@]} )"
 
-		if (( "${CURRENT_COMMAND_OUTPUT[@]}" == *"Imported $POSTS_PER_PAGE videos with"* )); then
+		if [[ "${CURRENT_COMMAND_OUTPUT[@]}" == *"Imported $POSTS_PER_PAGE videos with"* ]]; then
 			# The command succeeded, so continue the higher loop.
 			echo "Retry was successful on attempt $RETRY_COUNTER!\n"
 			break
 		fi
 
-		if (( "$RETRY_COUNTER" < 3 )); then
+		if [[ "$RETRY_COUNTER" < 5 ]]; then
 			# The command output still wasn't a success, so sleep and try again.
 			echo -e "\nThere was a JWPlayer timeout error... Retrying after 10s...\n"
 			sleep 10
 		else
-			echo -e "\nThere was a JWPlayer timeout error for 3 retries... Exiting import!\n"
+			echo "${CURRENT_COMMAND_OUTPUT[@]}"
+			echo -e "\nThere was a JWPlayer timeout error for 5 retries... Exiting import!\n"
 			exit 1
 		fi
 
@@ -104,27 +104,27 @@ run_vip_jwplayer_video_import() {
 
 	# Run the single import command.
 	local CMD_WP_CLI_CMD=( wp accuweather import_jwplayer_videos )
-	for (( CURRENT_PAGE=1; CURRENT_PAGE <= PAGES; CURRENT_PAGE++ )); do
+	for (( CURRENT_PAGE; CURRENT_PAGE <= PAGES; CURRENT_PAGE++ )); do
 
 		local CMD_OPTIONS=( --per-page="$POSTS_PER_PAGE" --offset="$VIDEO_OFFSET" --pages=1 --update-existing --format=table )
 		if [ ! -z $CMD_VERBOSE ]; then
-			CMD_OPTIONS="$CMD_OPTIONS $CMD_VERBOSE"
+			CMD_OPTIONS=( ${CMD_OPTIONS[@]} $CMD_VERBOSE )
 		fi
 
 		local CURRENT_COMMAND=( ${CMD_START[@]} ${CMD_WP_CLI_CMD[@]} ${CMD_OPTIONS[@]} )
-		local CURRENT_COMMAND_OUTPUT="$( ${CURRENT_COMMAND[@]} 2>&1 )"
 
 		# Log the output to the file
-		echo -e "\nImport command request: ${CURRENT_COMMAND[@]}\n"
+		echo -e "\nImport command request: ${CURRENT_COMMAND[@]}\nPage: $CURRENT_PAGE\n"
+		local CURRENT_COMMAND_OUTPUT="$( ${CURRENT_COMMAND[@]} )"
 
-		# If there is a JWPlayer timeout, retry request up to 3 times after 10s sleep.
-		if [ "${CURRENT_COMMAND_OUTPUT[@]}" == *"jwp-timeout-fail"* ]; then
+		# If there is a JWPlayer timeout, retry request up to 5 times after 10s sleep.
+		if [[ "${CURRENT_COMMAND_OUTPUT[@]}" == *"jwp-timeout-fail"* ]]; then
 			echo "There was a JWPlayer timeout error... Retrying after 10s.."
 			sleep 10
 
-			local RETRY_COUNTER=0
+			local RETRY_COUNTER=1
 			{
-				run_vip_jwplayer_video_import_request_retry 2>&1
+				run_vip_jwplayer_video_import_request_retry
 			} || {
 				echo "Error during retry or retry failed after 3 attempts."
 				exit 1;
@@ -135,9 +135,9 @@ run_vip_jwplayer_video_import() {
 		echo "${CURRENT_COMMAND_OUTPUT[@]}"
 
 		# sleep for 5 seconds
-		sleep 10
+		sleep 5
 
-		VIDEO_OFFSET=$(( CURRENT_PAGE*POSTS_PER_PAGE ))
+		VIDEO_OFFSET=$(( ( CURRENT_PAGE + 1 ) * POSTS_PER_PAGE ))
 	done
 }
 
@@ -146,16 +146,15 @@ run_vip_jwplayer_video_import() {
 ############################################################
 maybe_run_vip_jwplayer_video_import() {
 
-	if [ -z "$ENV_NAME" ]; then
+	if [[ -z "$ENV_NAME" || "$PAGE_OFFSET" -gt "$PAGES" ]]; then
+		[[ "$PAGE_OFFSET" -gt "$PAGES" ]] && echo true || echo false
 		return;
 	fi
 
-	local VIDEO_OFFSET=0
-	local CURRENT_PAGE=1
 	local IMPORT_LOG_DIR="${HOME}/Desktop/jwplayer-full-import-logs"
 
-	if [[ 0 -eq "$PAGE" || "$PAGE" -lt 0 ]]; then
-		PAGE=$CURRENT_PAGE
+	if [[ 0 -eq "$PAGES" || "$PAGES" -lt 0 ]]; then
+		PAGES=1
 	fi
 
 	if [ ! -d "$IMPORT_LOG_DIR" ]; then
@@ -166,6 +165,11 @@ maybe_run_vip_jwplayer_video_import() {
 		POSTS_PER_PAGE=1;
 	elif [ 1000 -lt "$POSTS_PER_PAGE" ]; then
 		POSTS_PER_PAGE=1000;
+	fi
+
+	if [[ ! -z "$PAGE_OFFSET" ]]; then
+		CURRENT_PAGE="$PAGE_OFFSET"
+		VIDEO_OFFSET=$(( PAGE_OFFSET*POSTS_PER_PAGE ))
 	fi
 
 	local FILE_ENV_NAME="$ENV_NAME"
@@ -219,7 +223,10 @@ maybe_run_vip_jwplayer_video_import() {
 	run_vip_jwplayer_video_import 2>&1 | write_log_and_append_tee
 
 	duration=$SECONDS
-	echo -e "\nVideo Import completed in $(($duration / 3600)) hours, $(($duration / 60)) minutes and $(($duration % 60)) seconds.\n" | tee -a "$LOG_FILE_PATH"
+	hours=$(($duration / 3600))
+	minutes=$((($duration %3600) / 60))
+	seconds=$(($duration % 60))
+	echo -e "\nVideo Import completed in $hours hours, $minutes minutes and $seconds seconds.\n" | tee -a "$LOG_FILE_PATH"
 }
 
 ########################################################################################################################
@@ -269,7 +276,7 @@ fi
 ENV_NAME=$1
 POSTS_PER_PAGE=$2
 PAGES=${3}
-OFFSET=${4-0}
+PAGE_OFFSET=${4-0}
 IS_LOCAL=${5-false}
 USE_LANDO=${6-false}
 IS_SLUG=${7-false}
@@ -277,6 +284,7 @@ IS_SLUG=${7-false}
 {
 	maybe_run_vip_jwplayer_video_import &&
 	echo "JWPlayer video import completed succesfully!"
+	exit;
 } || {
 	echo "JWPlayer video import script encoutered an uncaught error during import..."
 	exit 1;

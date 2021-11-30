@@ -172,9 +172,11 @@ maybe_run_vip_jwplayer_video_import() {
 		VIDEO_OFFSET=$(( PAGE_OFFSET*POSTS_PER_PAGE ))
 	fi
 
-	local FILE_ENV_NAME="$ENV_NAME"
+	local FILE_ENV_NAME="${ENV_NAME//./$'_'}"
+	# Use VIP CLI command: https://github.com/Automattic/vip
+	local CMD_ENV_NAME="@$ENV_NAME"
 	if [ $IS_LOCAL = true ]; then
-		FILE_ENV_NAME="${ENV_NAME//./$'_'}_dev-env"
+		FILE_ENV_NAME="${FILE_ENV_NAME}_dev-env"
 
 		if [ $USE_LANDO = true ]; then
 			# Change the directory to lando env
@@ -197,8 +199,6 @@ maybe_run_vip_jwplayer_video_import() {
 			# Removed verbose as it caused issues unless run directly in environment (i.e. lando or ssh into container)
 			local CMD_VERBOSE="--verbose"
 		else
-			# Use VIP CLI command: https://github.com/Automattic/vip
-			local CMD_ENV_NAME="@$ENV_NAME"
 			if [ $IS_SLUG = true ]; then
 				CMD_ENV_NAME="--slug=$ENV_NAME"
 			fi
@@ -206,6 +206,10 @@ maybe_run_vip_jwplayer_video_import() {
 			# Form the vip command
 			CMD_START=( vip "$CMD_ENV_NAME" dev-env exec -- )
 		fi
+	else
+
+		# Form the vip command
+		CMD_START=( vip "$CMD_ENV_NAME" -- )
 	fi
 
 	# Create log file name.

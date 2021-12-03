@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
 if [ $# -lt 2 ]; then
-	echo -e "usage: $0 <env-name> <path-to-sql-tar.gz> [is-slugged-environment]"
+	echo -e "usage: $0 <env-name> <path-to-sql-tar.gz> [use-lando] [is-slugged-environment]"
 	exit 1
 fi
 
 ENV_NAME=$1
 SQL_TAR_FILE_PATH=$2
-IS_SLUG_ENV=$3
+USE_LANDO=$3
+IS_SLUG_ENV=$4
 
 PRODUCTION_SITE="www.accuweather.com"
 
@@ -149,12 +150,21 @@ do_handle_data_import() {
 	retain_vip_dev_env_vars
 
 	for sql_file in *.sql; do
-		{
-			# Thes can take some time to complete, so don’t let your computer go to sleep until it’s done!
-			printf 'y\n' | vip "$VIP_ENV_NAME" dev-env import sql "$sql_file" --search-replace="$HOSTNAME_CONSUMER_CMS_PROD,$ENV_SLUG_NAME.vipdev.lndo.site" --search-replace="$PRODUCTION_SITE,$LOCAL_SITE" --in-place
-		} || {
-			log_error_exit "Failed to import $sql_file."
-		}
+		if [[ -z "$USE_LANDO" || "$USE_LANDO" == false ]]; then
+			{
+				# Thes can take some time to complete, so don’t let your computer go to sleep until it’s done!
+				printf 'y\n' | vip "$VIP_ENV_NAME" dev-env import sql "$sql_file" --search-replace="$HOSTNAME_CONSUMER_CMS_PROD,$ENV_SLUG_NAME.vipdev.lndo.site" --search-replace="$PRODUCTION_SITE,$LOCAL_SITE" --in-place
+			} || {
+				log_error_exit "Failed to import $sql_file."
+			}
+		else
+			{
+				# Thes can take some time to complete, so don’t let your computer go to sleep until it’s done!
+				lando wp db import "$sql_file"
+			} || {
+				log_error_exit "Failed to import $sql_file."
+			}
+		fi
 	done
 
 	cd ../../../

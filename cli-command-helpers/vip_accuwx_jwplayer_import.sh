@@ -40,24 +40,28 @@ vip_jwplayer_full_import_help() {
 	echo -e "\n--------------------------------------------------------------------------------------------------------------\n"
 }
 
-# Defines function to grab a time stamp #
+############################################################
+# Defines function to grab a time stamp                    #
+# shellcheck disable=SC2120                                #
+############################################################
 write_log_and_append_tee() {
 	local STDOUT_TO_IN=""
+	local LOG_TO_FILE_COMMAND=( tee -a "${LOG_FILE_PATH}" )
 	if [ -n "${1}" ]; then
 		# If it's from a "<message>" then set it
 		STDOUT_TO_IN="${1}"
-		if [ ! -z "$STDOUT_TO_IN" ]; then
-			echo "****${date '+%Y-%m-%d\ %H:%M:%S'} ${STDOUT_TO_IN}" | tee -a ${LOG_FILE_PATH}
+		if [ -n "$STDOUT_TO_IN" ]; then
+			echo "****$( date '+%Y-%m-%d\ %H:%M:%S' ) ${STDOUT_TO_IN}" | "${LOG_TO_FILE_COMMAND[@]}"
 		else
-			echo | tee -a ${LOG_FILE_PATH}
+			echo | "${LOG_TO_FILE_COMMAND[@]}"
 		fi
 	else
 		# This reads a string from stdin and stores it as variable called STDOUT_TO_IN
 		while IFS= read -r STDOUT_TO_IN; do
-			if [ ! -z "$STDOUT_TO_IN" ]; then
-				echo "[$( date '+%Y-%m-%d\ %H:%M:%S' )] ${STDOUT_TO_IN}" | tee -a ${LOG_FILE_PATH}
+			if [ -n "$STDOUT_TO_IN" ]; then
+				echo "[$( date '+%Y-%m-%d\ %H:%M:%S' )] ${STDOUT_TO_IN}" | "${LOG_TO_FILE_COMMAND[@]}"
 			else
-				echo | tee -a ${LOG_FILE_PATH}
+				echo | "${LOG_TO_FILE_COMMAND[@]}"
 			fi
 		done
 	fi
@@ -68,15 +72,15 @@ write_log_and_append_tee() {
 ############################################################
 run_vip_jwplayer_video_import_request_retry() {
 	while true; do
-		CURRENT_COMMAND_OUTPUT="$( ${CURRENT_COMMAND[@]} )"
+		CURRENT_COMMAND_OUTPUT=$( "${CURRENT_COMMAND[@]}" )
 
-		if [[ "${CURRENT_COMMAND_OUTPUT[@]}" == *"Imported $POSTS_PER_PAGE videos with"* ]]; then
+		if [[ "${CURRENT_COMMAND_OUTPUT[*]}" == *"Imported $POSTS_PER_PAGE videos with"* ]]; then
 			# The command succeeded, so continue the higher loop.
-			echo "Retry was successful on attempt $RETRY_COUNTER!\n"
+			echo -e "Retry was successful on attempt $RETRY_COUNTER!\n"
 			break
 		fi
 
-		if [[ "$RETRY_COUNTER" < 5 ]]; then
+		if [[ "$RETRY_COUNTER" -lt 5 ]]; then
 			# The command output still wasn't a success, so sleep and try again.
 			echo -e "\nThere was a JWPlayer timeout error... Retrying after 10s...\n"
 			sleep 10
@@ -96,7 +100,7 @@ run_vip_jwplayer_video_import_request_retry() {
 run_vip_jwplayer_video_import() {
 
 	if [[ -z "$CMD_START" || -z "$LOG_FILE_PATH" ]]; then
-		echo -e "\nError! This should be run from `maybe_run_vip_jwplayer_video_import` function instead!\n"
+		echo -e "\nError! This should be run from 'maybe_run_vip_jwplayer_video_import' function instead!\n"
 		exit 1;
 	fi
 
@@ -107,18 +111,18 @@ run_vip_jwplayer_video_import() {
 	for (( CURRENT_PAGE; CURRENT_PAGE <= PAGES; CURRENT_PAGE++ )); do
 
 		local CMD_OPTIONS=( --per-page="$POSTS_PER_PAGE" --offset="$VIDEO_OFFSET" --pages=1 --update-existing --format=table )
-		if [ ! -z $CMD_VERBOSE ]; then
-			CMD_OPTIONS=( ${CMD_OPTIONS[@]} $CMD_VERBOSE )
+		if [ -n "$CMD_VERBOSE" ]; then
+			CMD_OPTIONS=( "${CMD_OPTIONS[@]} $CMD_VERBOSE" )
 		fi
 
-		local CURRENT_COMMAND=( ${CMD_START[@]} ${CMD_WP_CLI_CMD[@]} ${CMD_OPTIONS[@]} )
+		local CURRENT_COMMAND=( "${CMD_START[@]} ${CMD_WP_CLI_CMD[@]} ${CMD_OPTIONS[@]}" )
 
 		# Log the output to the file
-		echo -e "\nImport command request: ${CURRENT_COMMAND[@]}\nPage: $CURRENT_PAGE\n"
-		local CURRENT_COMMAND_OUTPUT="$( ${CURRENT_COMMAND[@]} )"
+		echo -e "\nImport command request: ${CURRENT_COMMAND[*]}\nPage: $CURRENT_PAGE\n"
+		CURRENT_COMMAND_OUTPUT=$( "${CURRENT_COMMAND[@]}" )
 
 		# If there is a JWPlayer timeout, retry request up to 5 times after 10s sleep.
-		if [[ "${CURRENT_COMMAND_OUTPUT[@]}" == *"jwp-timeout-fail"* ]]; then
+		if [[ "${CURRENT_COMMAND_OUTPUT[*]}" == *"jwp-timeout-fail"* ]]; then
 			echo "There was a JWPlayer timeout error... Retrying after 10s.."
 			sleep 10
 
@@ -158,7 +162,7 @@ maybe_run_vip_jwplayer_video_import() {
 	fi
 
 	if [ ! -d "$IMPORT_LOG_DIR" ]; then
-		mkdir -p $IMPORT_LOG_DIR
+		mkdir -p "$IMPORT_LOG_DIR"
 	fi
 
 	if [ 0 -eq "$POSTS_PER_PAGE" ]; then
@@ -167,7 +171,7 @@ maybe_run_vip_jwplayer_video_import() {
 		POSTS_PER_PAGE=1000;
 	fi
 
-	if [[ ! -z "$PAGE_OFFSET" ]]; then
+	if [[ -n "$PAGE_OFFSET" ]]; then
 		CURRENT_PAGE="$PAGE_OFFSET"
 		VIDEO_OFFSET=$(( PAGE_OFFSET*POSTS_PER_PAGE ))
 	fi
@@ -175,10 +179,10 @@ maybe_run_vip_jwplayer_video_import() {
 	local FILE_ENV_NAME="${ENV_NAME//./$'_'}"
 	# Use VIP CLI command: https://github.com/Automattic/vip
 	local CMD_ENV_NAME="@$ENV_NAME"
-	if [ $IS_LOCAL = true ]; then
+	if [ "$IS_LOCAL" = true ]; then
 		FILE_ENV_NAME="${FILE_ENV_NAME}_dev-env"
 
-		if [ $USE_LANDO = true ]; then
+		if [ "$USE_LANDO" = true ]; then
 			# Change the directory to lando env
 			local VIP_DEV_ENV_DIR_PATH="$VIP_DEV_ENV_DIR/$ENV_NAME"
 			if [ ! -d "$VIP_DEV_ENV_DIR_PATH" ]; then
@@ -191,7 +195,10 @@ maybe_run_vip_jwplayer_video_import() {
 				fi
 				VIP_DEV_ENV_DIR_PATH="$VIP_DEV_ENV_DIR/${ENV_NAME//./$'-'}"
 			fi
-			cd "$VIP_DEV_ENV_DIR_PATH"
+			cd "$VIP_DEV_ENV_DIR_PATH" || {
+				echo -e "\nError occured when switching to path: $VIP_DEV_ENV_DIR_PATH"
+				exit 1;
+			}
 
 			# Form the lando command
 			CMD_START=( lando )
@@ -199,7 +206,7 @@ maybe_run_vip_jwplayer_video_import() {
 			# Removed verbose as it caused issues unless run directly in environment (i.e. lando or ssh into container)
 			local CMD_VERBOSE="--verbose"
 		else
-			if [ $IS_SLUG = true ]; then
+			if [ "$IS_SLUG" = true ]; then
 				CMD_ENV_NAME="--slug=$ENV_NAME"
 			fi
 
@@ -213,23 +220,25 @@ maybe_run_vip_jwplayer_video_import() {
 	fi
 
 	# Create log file name.
-	local FILE_DATE=$( date '+%Y-%m-%d' )
-	local FILE_TIME=$( date '+%Hh-%Mm-%Ss' )
+	FILE_DATE=$( date '+%Y-%m-%d' )
+	FILE_TIME=$( date '+%Hh-%Mm-%Ss' )
 	local LOG_FILE_NAME="import_jwplayer_videos_page_${PAGES}_videos_${POSTS_PER_PAGE}_import_$FILE_TIME.log"
 	local LOG_DIR_PATH="$IMPORT_LOG_DIR/$FILE_ENV_NAME/$FILE_DATE"
 	if [ ! -d "$LOG_DIR_PATH" ]; then
-		mkdir -p $LOG_DIR_PATH
+		mkdir -p "$LOG_DIR_PATH"
 	fi
 
 	LOG_FILE_PATH="$LOG_DIR_PATH/$LOG_FILE_NAME"
 
 	SECONDS=0
+
+	# shellcheck disable=SC2119
 	run_vip_jwplayer_video_import 2>&1 | write_log_and_append_tee
 
 	duration=$SECONDS
-	hours=$(($duration / 3600))
-	minutes=$((($duration %3600) / 60))
-	seconds=$(($duration % 60))
+	hours=$(( duration / 3600 ))
+	minutes=$((( duration % 3600) / 60 ))
+	seconds=$(( duration % 60 ))
 	echo -e "\nVideo Import completed in $hours hours, $minutes minutes and $seconds seconds.\n" | tee -a "$LOG_FILE_PATH"
 }
 
@@ -284,6 +293,16 @@ PAGE_OFFSET=${4-0}
 IS_LOCAL=${5-false}
 USE_LANDO=${6-false}
 IS_SLUG=${7-false}
+
+# If vip command is installed, add the local path.
+if [ -d "$HOME"/.local/share/vip ]; then
+	export VIP_CLI_DIR=$HOME/.local/share/vip
+
+    # If developer environments exist, add that dir as an export as well.
+    if [ -d "$VIP_CLI_DIR"/dev-environment ]; then
+		export VIP_DEV_ENV_DIR=$VIP_CLI_DIR/dev-environment
+    fi
+fi
 
 {
 	maybe_run_vip_jwplayer_video_import &&

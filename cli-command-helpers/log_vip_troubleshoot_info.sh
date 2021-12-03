@@ -65,13 +65,30 @@ log_vip_env_troubleshoot_info() {
 		VIP_DEV_ENV_DIR_PATH="$VIP_DEV_ENV_DIR/${ENV_NAME//./$'-'}"
 	fi
 
-	local CURRENT_DIR=$(pwd)
-	cd "$VIP_DEV_ENV_DIR_PATH"
+	CURRENT_DIR=$( pwd )
+	cd "$VIP_DEV_ENV_DIR_PATH" || {
+		echo -e "\nError occured when switching to path: $VIP_DEV_ENV_DIR_PATH\n"
+		exit 1;
+	}
 
 	perform_log 2>&1 | tee -a "$HOME/Desktop/vip_dev-env_$ENV_NAME.log"
 
 	# Change back to previous working directory.
-	cd $CURRENT_DIR
+	# This doesn't seem to be needed, but I'll leave anyway until I learn why.
+	cd "$CURRENT_DIR" || {
+		echo -e "\nError occured when switching to path: $CURRENT_DIR\n"
+		exit 1;
+	}
 }
+
+# If vip command is installed, add the local path.
+if [ -d "$HOME"/.local/share/vip ]; then
+	export VIP_CLI_DIR=$HOME/.local/share/vip
+
+    # If developer environments exist, add that dir as an export as well.
+    if [ -d "$VIP_CLI_DIR"/dev-environment ]; then
+		export VIP_DEV_ENV_DIR=$VIP_CLI_DIR/dev-environment
+    fi
+fi
 
 log_vip_env_troubleshoot_info

@@ -42,8 +42,9 @@ run_lando_full_jwplayer_video_import() {
 		VIP_DEV_ENV_DIR_PATH="$VIP_DEV_ENV_DIR/${ENV_NAME//./$'-'}"
 	fi
 
-	local CURRENT_DIR=$(pwd)
-	cd "$VIP_DEV_ENV_DIR_PATH"
+	local CURRENT_DIR
+	CURRENT_DIR="$( pwd )"
+	cd "$VIP_DEV_ENV_DIR_PATH" || exit 1;
 
 	local VIDEO_OFFSET=0
 	local CURRENT_PAGE=1
@@ -54,7 +55,7 @@ run_lando_full_jwplayer_video_import() {
 	fi
 
 	if [ ! -d "$IMPORT_LOG_DIR" ]; then
-		mkdir -p $IMPORT_LOG_DIR
+		mkdir -p "$IMPORT_LOG_DIR"
 	fi
 
 	for (( i=1; i <= PAGES; i++ )); do
@@ -64,8 +65,18 @@ run_lando_full_jwplayer_video_import() {
 	done
 
 	# Change back to previous working directory.
-	cd $CURRENT_DIR
+	cd "$CURRENT_DIR" || exit 1;
 }
+
+# If vip command is installed, add the local path.
+if [ -d "$HOME"/.local/share/vip ]; then
+	export VIP_CLI_DIR=$HOME/.local/share/vip
+
+	# If developer environments exist, add that dir as an export as well.
+	if [ -d "$VIP_CLI_DIR"/dev-environment ]; then
+		export VIP_DEV_ENV_DIR=$VIP_CLI_DIR/dev-environment
+	fi
+fi
 
 echo "Beginning JWPlayer Full Import..."
 SECONDS=0
@@ -76,4 +87,4 @@ SECONDS=0
 	error_exit "JWPlayer video import script encoutered an error during import..."
 }
 duration=$SECONDS
-echo "Import completed in $(($duration / 3600)) hours, $(($duration / 60)) minutes and $(($duration % 60)) seconds."
+echo "Import completed in $(("$duration" / 3600)) hours, $(("$duration" / 60)) minutes and $(("$duration" % 60)) seconds."

@@ -14,9 +14,19 @@ PRODUCTION_SITE="www.accuweather.com"
 # Replace this with the RW host hostname/ address
 LOCAL_SITE="192.168.0.242:8086"
 
+# If vip command is installed, add the local path.
+if [ -d "$HOME"/.local/share/vip ]; then
+	export VIP_CLI_DIR=$HOME/.local/share/vip
+
+	# If developer environments exist, add that dir as an export as well.
+	if [ -d "$VIP_CLI_DIR"/dev-environment ]; then
+		export VIP_DEV_ENV_DIR=$VIP_CLI_DIR/dev-environment
+	fi
+fi
+
 log_error_exit() {
-    echo -e "Error: $1"
-    exit 1
+	echo -e "\nError: $1\n"
+	exit 1
 }
 
 declare -A retainedVars
@@ -46,21 +56,21 @@ do_handle_data_import() {
 
 	# Ensure that '.' is replaced with '-' in ENV_NAME
 	local ENV_SLUG_NAME="${ENV_NAME//./$'-'}"
-	if [[ ! -z "$IS_SLUG_ENV" || "$IS_SLUG_ENV" == true ]]; then
-		ENV_SLUG_NAME="$ENV_NAME"
-	fi
-
 	if [[ -z "$ENV_NAME" || -z "$VIP_DEV_ENV_DIR" || -z "$HOSTNAME_CONSUMER_CMS_PROD" || ! -d "$VIP_DEV_ENV_DIR/$ENV_SLUG_NAME" ]]; then
 		echo -e "Error: There is a missing dependency!"
-		echo -e "Param 1: $ENV_NAME"
-		echo -e "Param 2: $VIP_DEV_ENV_DIR"
-		echo -e "Param 3: $HOSTNAME_CONSUMER_CMS_PROD"
-		echo -e "Global Path: $VIP_DEV_ENV_DIR/$ENV_SLUG_NAME"
+		echo -e "Param 1 [\$ENV_NAME]: $ENV_NAME"
+		echo -e "Global variable 2 [\$VIP_DEV_ENV_DIR]: $VIP_DEV_ENV_DIR"
+		echo -e "Global variable 3 [\$HOSTNAME_CONSUMER_CMS_PROD]: $HOSTNAME_CONSUMER_CMS_PROD"
+		echo -e "Global Path [\$VIP_DEV_ENV_DIR/\$ENV_SLUG_NAME]: $VIP_DEV_ENV_DIR/$ENV_SLUG_NAME"
 		exit 1
 	else
-		local CURRENT_DIR=$( PWD )
-		cd "$VIP_DEV_ENV_DIR/$ENV_SLUG_NAME"
-		echo -e "Working from $PWD"
+		local CURRENT_DIR
+		CURRENT_DIR=$( pwd )
+		cd "$VIP_DEV_ENV_DIR/$ENV_SLUG_NAME" || {
+			echo -e "\nError occured when switching to path: $VIP_DEV_ENV_DIR/$ENV_SLUG_NAME"
+			exit 1;
+		}
+		echo -e "\nWorking from $CURRENT_DIR\n"
 	fi
 
 	local VIP_ENV_NAME="@$ENV_NAME"
@@ -72,7 +82,9 @@ do_handle_data_import() {
 		if [ ! -d db_dump ]; then
 			mkdir db_dump
 		fi
-		cd db_dump
+		cd db_dump || {
+			log_error_exit "Error occured when switching to path: $( pwd )/db_dump"
+		}
 	else
 		log_error_exit "Error: The SQL Tar File Path is invalid or does not exist."
 	fi
@@ -82,16 +94,31 @@ do_handle_data_import() {
 		local TAR_NAME=${SQL_TAR_FILE_PATH#"${SQL_TAR_FILE_PATH%*"$HOSTNAME_CONSUMER_CMS_PROD-sqls-roots-"*".tar.gz"}"}
 		local TAR_DIR="${SQL_TAR_FILE_PATH%"$TAR_NAME"}"
 
-		if [[ -d "$TAR_DIR" && ! -z "$TAR_NAME" ]]; then
+		if [[ -d "$TAR_DIR" && -n "$TAR_NAME" ]]; then
 			{
-				local PREVIOUS_DIR=$( PWD )
+				local PREVIOUS_DIR=$( pwd )
 				local EXTRACTED_TAR_NAME="${TAR_NAME%*".tar.gz"}"
 
 				echo -e "Beginning extraction of $TAR_NAME tar from directory $TAR_DIR..."
-				cd $TAR_DIR &&
-				mkdir $EXTRACTED_TAR_NAME &&
-				tar -xvf $TAR_NAME -C $EXTRACTED_TAR_NAME &&
-				mv "$EXTRACTED_TAR_NAME" "$PREVIOUS_DIR/" &&
+				cd "$TAR_DIR" && {
+					# Ensure that the directory does not exist, remove it if it does.
+					if [[ -d "$EXTRACTED_TAR_NAME" ]]; then
+						echo -e "Directory: $EXTRACTED_TAR_NAME exists... Emptying... "
+						rm -rf "$EXTRACTED_TAR_NAME"
+					fi
+
+					# Create the temporary directory to extract the files to.
+					mkdir "$EXTRACTED_TAR_NAME"
+				} &&
+				tar -xvf "$TAR_NAME" -C "$EXTRACTED_TAR_NAME" && {
+					# Ensure that the directory does not exist, remove it if it does.
+					if [[ -d "$PREVIOUS_DIR/$EXTRACTED_TAR_NAME" ]]; then
+						echo -e "Directory: $PREVIOUS_DIR/$EXTRACTED_TAR_NAME exists... Emptying... "
+						rm -rf "${PREVIOUS_DIR:?}/$EXTRACTED_TAR_NAME"
+					fi
+
+					mv "$EXTRACTED_TAR_NAME" "$PREVIOUS_DIR/"
+				} &&
 				cd "$PREVIOUS_DIR/$EXTRACTED_TAR_NAME/sql"
 			} || {
 				log_error_exit "Failed to extract sql files..."
@@ -134,7 +161,10 @@ do_handle_data_import() {
 	rm -rf db_dump/
 	update_table_data_entries
 
-	cd $CURRENT_DIR
+	# This doesn't seem to be needed, but I'll leave anyway until I learn why.
+	cd "$CURRENT_DIR" || {
+		log_error_exit "Error occured when switching to path: $CURRENT_DIR"
+	}
 }
 
 echo -e "Beginning VIP dev-env data import..."
@@ -146,4 +176,4 @@ SECONDS=0
 	error_exit "VIP dev-env data import script encoutered an error during import..."
 }
 duration=$SECONDS
-echo -e "Import completed in $(($duration / 60)) minutes and $(($duration % 60)) seconds."
+echo -e "Import completed in $(( duration / 60 )) minutes and $(( duration % 60 )) seconds."

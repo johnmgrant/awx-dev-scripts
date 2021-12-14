@@ -10,7 +10,7 @@
 # Usage                                                    #
 ############################################################
 vip_jwplayer_full_import_usage() {
-	echo -e "\n\t- % $0 <env-name> <posts-per-page> <pages> [offset] [is-local-env] [use-lando] [is-slug-env]"
+	echo -e "\n\t- % $0 <env-name> <posts-per-page> <pages> [page-offset] [is-local-env] [use-lando] [is-slug-env]"
 	echo -e "\t- % $0 [-h]\n"
 }
 
@@ -108,17 +108,18 @@ run_vip_jwplayer_video_import() {
 
 	# Run the single import command.
 	local CMD_WP_CLI_CMD=( wp accuweather import_jwplayer_videos )
-	for (( CURRENT_PAGE; CURRENT_PAGE <= PAGES; CURRENT_PAGE++ )); do
+	for (( CURRENT_PAGE; CURRENT_PAGE < PAGES; CURRENT_PAGE++ )); do
 
 		local CMD_OPTIONS=( --per-page="$POSTS_PER_PAGE" --offset="$VIDEO_OFFSET" --pages=1 --update-existing --format=table )
 		if [ -n "$CMD_VERBOSE" ]; then
-			CMD_OPTIONS=( "${CMD_OPTIONS[@]} $CMD_VERBOSE" )
+			CMD_OPTIONS=( "${CMD_OPTIONS[@]}" "$CMD_VERBOSE" )
 		fi
 
-		local CURRENT_COMMAND=( "${CMD_START[@]} ${CMD_WP_CLI_CMD[@]} ${CMD_OPTIONS[@]}" )
+		local CURRENT_COMMAND=( "${CMD_START[@]}" "${CMD_WP_CLI_CMD[@]}" "${CMD_OPTIONS[@]}" )
 
 		# Log the output to the file
 		echo -e "\nImport command request: ${CURRENT_COMMAND[*]}\nPage: $CURRENT_PAGE\n"
+
 		CURRENT_COMMAND_OUTPUT=$( "${CURRENT_COMMAND[@]}" )
 
 		# If there is a JWPlayer timeout, retry request up to 5 times after 10s sleep.
@@ -216,7 +217,7 @@ maybe_run_vip_jwplayer_video_import() {
 	else
 
 		# Form the vip command
-		CMD_START=( vip "$CMD_ENV_NAME" -- )
+		CMD_START=( vip "$CMD_ENV_NAME" --yes -- )
 	fi
 
 	# Create log file name.

@@ -153,7 +153,7 @@ do_handle_data_import() {
 		if [[ -z "$USE_LANDO" || "$USE_LANDO" == false ]]; then
 			{
 				# Thes can take some time to complete, so don’t let your computer go to sleep until it’s done!
-				printf 'y\n' | vip "$VIP_ENV_NAME" dev-env import sql "$sql_file" --search-replace="$HOSTNAME_CONSUMER_CMS_PROD,$ENV_SLUG_NAME.vipdev.lndo.site" --search-replace="$PRODUCTION_SITE,$LOCAL_SITE" --in-place
+				printf 'y\n' | vip "$VIP_ENV_NAME" dev-env import sql "$sql_file" --search-replace="$HOSTNAME_CONSUMER_CMS_PROD,$ENV_SLUG_NAME.vipdev.lndo.site" --search-replace="$PRODUCTION_SITE,$LOCAL_SITE"
 			} || {
 				log_error_exit "Failed to import $sql_file."
 			}

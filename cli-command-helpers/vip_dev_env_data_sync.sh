@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# Developed to be used for backups from Vaultpress only.
 if [ $# -lt 2 ]; then
 	echo -e "usage: $0 <env-name> <path-to-sql-tar.gz> [use-lando] [is-slugged-environment]"
 	exit 1
@@ -47,7 +48,9 @@ update_table_data_entries() {
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update apple_news_settings api_autosync_delete no
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update aw_jwplayer cron_import_settings enable_cron_import 0
 	vip "$VIP_ENV_NAME" dev-env exec -- wp option patch update aw_jwplayer playlist_import_options import_enabled 0
+	vip "$VIP_ENV_NAME" dev-env exec -- wp network meta update 1 site_name "Local AccuWeather Consumer CMS"
 	vip "$VIP_ENV_NAME" dev-env exec -- wp network meta update 1 admin_email "$WORK_EMAIL"
+	vip "$VIP_ENV_NAME" dev-env exec -- wp network meta delete 1 new_admin_email
 	vip "$VIP_ENV_NAME" dev-env exec -- wp site meta update 1 site_name "${retainedVars[site_name]}"
 	vip "$VIP_ENV_NAME" dev-env exec -- wp site meta update 1 siteurl "http://$ENV_SLUG_NAME.vipdev.lndo.site"
 	vip "$VIP_ENV_NAME" dev-env exec -- wp cache flush
@@ -152,8 +155,14 @@ do_handle_data_import() {
 	for sql_file in *.sql; do
 		if [[ -z "$USE_LANDO" || "$USE_LANDO" == false ]]; then
 			{
+				# Search replace needs to be handled differently due to @automattic/vip changes since v2.11.0
+				local HOST_SEARCH_REPLACE="home,$ENV_SLUG_NAME.vipdev.lndo.site"
+				if [[ "wp_options.sql" == "$sql_file" || "wp_sitemeta.sql" == "$sql_file" ]]; then
+					HOST_SEARCH_REPLACE="$HOSTNAME_CONSUMER_CMS_PROD,$ENV_SLUG_NAME.vipdev.lndo.site"
+				fi
+
 				# Thes can take some time to complete, so don’t let your computer go to sleep until it’s done!
-				printf 'y\n' | vip "$VIP_ENV_NAME" dev-env import sql "$sql_file" --search-replace="$HOSTNAME_CONSUMER_CMS_PROD,$ENV_SLUG_NAME.vipdev.lndo.site" --search-replace="$PRODUCTION_SITE,$LOCAL_SITE"
+				printf 'y\n' | vip "$VIP_ENV_NAME" dev-env import sql "$sql_file" --search-replace="$HOST_SEARCH_REPLACE" --search-replace="$PRODUCTION_SITE,$LOCAL_SITE"
 			} || {
 				log_error_exit "Failed to import $sql_file."
 			}

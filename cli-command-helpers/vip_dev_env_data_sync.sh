@@ -156,10 +156,7 @@ do_handle_data_import() {
 		if [[ -z "$USE_LANDO" || "$USE_LANDO" == false ]]; then
 			{
 				# Search replace needs to be handled differently due to @automattic/vip changes since v2.11.0
-				local HOST_SEARCH_REPLACE="home,$ENV_SLUG_NAME.vipdev.lndo.site"
-				if [[ "wp_options.sql" == "$sql_file" || "wp_sitemeta.sql" == "$sql_file" ]]; then
-					HOST_SEARCH_REPLACE="$HOSTNAME_CONSUMER_CMS_PROD,$ENV_SLUG_NAME.vipdev.lndo.site"
-				fi
+				local HOST_SEARCH_REPLACE="$HOSTNAME_CONSUMER_CMS_PROD,$ENV_SLUG_NAME.vipdev.lndo.site"
 
 				# Thes can take some time to complete, so don’t let your computer go to sleep until it’s done!
 				printf 'y\n' | vip "$VIP_ENV_NAME" dev-env import sql "$sql_file" --search-replace="$HOST_SEARCH_REPLACE" --search-replace="$PRODUCTION_SITE,$LOCAL_SITE"
